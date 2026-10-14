@@ -4,6 +4,8 @@
 
 **Twitch ads, eaten. No proxy, no server, no subscription. nyaa~**
 
+![README visits](https://count.getloli.com/@marek-codex.twitchphage?theme=booru-lewd)
+
 ![Manifest](https://img.shields.io/badge/Manifest-V3-3CA0FF?style=flat-square)
 ![Chromium](https://img.shields.io/badge/Chromium-Brave%20%7C%20Chrome%20%7C%20Edge%20%7C%20Opera-07111C?style=flat-square&logo=googlechrome&logoColor=white)
 ![Firefox](https://img.shields.io/badge/Firefox-115%2B-A03CFF?style=flat-square&logo=firefox&logoColor=white)
