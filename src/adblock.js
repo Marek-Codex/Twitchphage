@@ -24,6 +24,7 @@
   /* The arms race in ONE string. When Twitch renames the stitched marker, this
      is the line a contributor changes. Everything else here is stable. -------- */
   const AD_SIGNIFIER = 'stitched';
+  const LOG = '[Twitchphage]';   // what to grep for in the console when debugging
 
   // A 1-frame silent black clip, served in place of a stripped ad segment so the
   // player's segment count still adds up and it doesn't stall waiting on bytes
@@ -101,6 +102,7 @@
       try {
         const body = await response.text();
         if (body.includes(AD_SIGNIFIER)) {
+          console.info(`${LOG} ad segments detected in playlist — stripping them`);
           const cleaned = stripAds(body);
           return new Response(cleaned, {
             status: response.status,

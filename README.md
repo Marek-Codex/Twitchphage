@@ -21,31 +21,36 @@ runs entirely client-side. It's aggressive re-upholstery. nyaa~
 
 ## The government says to use an ad blocker
 
-Not kidding. Blocking ads is standard security hygiene, according to the actual
-United States government:
+Not kidding. Blocking ads is standard security hygiene — recommended, on the
+record, by the United States government:
 
 > **"Use an ad blocking extension when performing Internet searches."**
 > — FBI, Internet Crime Complaint Center (IC3) public service announcement,
 > December 2022
 
-That alert was about cybercriminals buying search ads to impersonate brands and
-slip malware past people. The FBI's advice: block the ads. TechCrunch covered it
-under the headline *"Even the FBI says you should use an ad blocker."*
+The alert was about cybercriminals buying search ads to impersonate brands and
+slip malware past people. The FBI's prescription was blunt: block the ads.
+TechCrunch ran it under the headline *"Even the FBI says you should use an ad
+blocker."*
 
-And it wasn't a one-off. The **NSA** has its own guidance on blocking
-advertising web content, and the broader **Intelligence Community** has deployed
-ad-blocking at scale precisely because online advertising is treated as a
-security risk, not a nuisance.
+It wasn't a one-off. The **NSA** publishes its own guidance on blocking
+advertising web content, and the broader **Intelligence Community** runs
+ad-blockers at scale — a congressional letter obtained by reporters showed
+agencies treat online advertising as a security risk in its own right (*"The NSA
+and CIA Use Ad Blockers Because Online Advertising Is So Dangerous,"* Joseph
+Cox). When the FBI's Denver field office posted its own reminder to install an
+ad blocker in 2024, it made national news.
 
-Now — were they talking about Twitch prerolls specifically? *Obviously not.*
-Twitch ads are, by every honest measure, the least dangerous ads on the internet.
-Nobody's crypto wallet is getting drained by a mid-roll for energy drinks.
+So no — this isn't a spite project or a tantrum. Blocking ads on your own machine
+is recommended hygiene from the same agencies people trust for security advice.
+Twitchphage just aims that well-established practice at Twitch's server-side
+stitched ads: the one place off-the-shelf ad blockers can't reach.
 
-But the principle they're pointing at is the same one Twitchphobe and Twitchphage
-run on: **ads are a vector, and blocking them on your own machine is a
-legitimate, recommended, dare-we-say patriotic thing to do.** So when someone
-tells you blocking Twitch ads is rude, you can tip your hat and mention that the
-FBI and the NSA are, technically, on our side of this one.
+<sub>Sources:
+[TechCrunch](https://techcrunch.com/2022/12/22/fbi-ad-blocker/) ·
+[SecurityWeek](https://www.securityweek.com/fbi-recommends-ad-blockers-cybercriminals-impersonate-brands-search-engine-ads/) ·
+[IC3 alert, archived](https://blog.zgp.org/fbi-update/) ·
+[FBI Denver, 2024](https://www.pcmag.com/news/fbi-recommends-installing-an-ad-blocker-to-dodge-scammers)</sub>
 
 *Slightly cheeky. Also, technically, correct. nyaa~*
 
@@ -70,6 +75,28 @@ content arrive from the same CDN URL. Twitchphage works around it two ways:
 No proxy. No server. No Twitch Turbo. It runs in your browser and nowhere else.
 
 ---
+
+## Works on (basically) everything
+
+The code is plain MV3 + standard APIs, so it runs on whole *families* of
+browsers with no changes. Same bytes, different wrappers:
+
+| Family | Examples | Load via | Stays after restart? |
+|---|---|---|---|
+| **Chromium** | Chrome, Edge, **Brave**, Opera, Opera GX, Vivaldi, Arc, Yandex, Samsung Internet, Chromium, Thorium, **Kiwi (Android)** | `-dragdrop.zip` or `-unpacked.zip` | ✅ Yes |
+| **Firefox** | Firefox, LibreWolf, Waterfox, Floorp | `.xpi` (see below) | ⚠️ Temporary unless signed |
+| **Userscript** | Tampermonkey, ScriptCat, Violentmonkey | `Twitchphage.user.js` | ✅ Yes |
+| **Safari** | Safari 15+ (macOS/iOS) | needs a Mac — `safari-web-extension-converter` | Depends on packaging |
+
+**Safari is the only real gap**, and it's blocked by tooling, not code: converting
+a WebExtension to a Safari Web Extension needs macOS + Xcode (`xcrun
+safari-web-extension-converter`). The code is WebKit-compatible as-is; it just
+needs a Mac (or a macOS CI runner) to wrap and sign it. A job for another day.
+
+**Mobile note:** Chrome and Edge don't run extensions on Android at all, so
+phones get Kiwi (works with the unpacked zip), Firefox for Android (via an AMO
+listing, though its add-on set is curated), or Safari iOS (converted). Limited by
+the platforms, not by us.
 
 ## Install
 
@@ -143,8 +170,46 @@ The design isolates everything volatile into a tiny, obvious surface:
 
 When it rots, a contributor updates two or three strings and nothing else. That's
 the entire deal. **Contributions aren't just welcome here — they're the plan.**
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the 2-minute "it broke, here's the
-fix" workflow.
+
+---
+
+## When it breaks (and it will)
+
+This is arms-race software — Twitch changes something, ads come back. Here's how
+to tell what happened, in plain English. No code reading required.
+
+**Open DevTools** (`F12`, or `Ctrl+Shift+I` / `Cmd+Option+I`) → **Console** tab.
+Filter the box for `Twitchphage`.
+
+- **You see `[Twitchphage] ad segments detected — stripping them`** → the fallback
+  is doing its job; ads are being removed live. Working as intended.
+- **Nothing from Twitchphage, but ads still play** → the clean-stream swap stopped
+  landing. Twitch probably quit serving ad-free streams to the `popout` player
+  type. **What to change:** `cleanPlayerType` at the top of `src/page.js` — try
+  `embed`, then `autoplay`. Reload, test.
+- **Nothing from Twitchphage, and the stream won't load at all** → the swap is
+  getting rejected. Set `cleanPlayerType` back to a known-good value, and check
+  whether Twitch renamed its request shape (below).
+
+**Open the Network tab**, filter for `gql`, and watch a stream start. Find the
+`PlaybackAccessToken` request:
+
+- **Payload tab** — did `playerType` actually get rewritten to `popout`? If not,
+  the fetch hook isn't matching Twitch's request shape anymore.
+- **Response tab** — is the token coming back clean, or is it stitched?
+
+**If ads play but you never see the `[Twitchphage]` stripping line:** Twitch
+renamed the marker it drops into ad-stitched playlists. Open a live ad-stitched
+`.m3u8` from the Network tab, look for the tag, and update `AD_SIGNIFIER` at the
+top of `src/adblock.js` to match.
+
+Nine times out of ten it's one of those two values. Change it, rebuild the
+userscript (`node tools/build-userscript.js`), and open a PR — the full workflow
+is in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## For maintainers
 
 ---
 
