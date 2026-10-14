@@ -80,9 +80,23 @@ No proxy. No server. No Twitch Turbo. It runs in your browser and nowhere else.
 |---|---|
 | **Chromium** (Brave / Chrome / Edge / Opera) | Drag `Twitchphage-*-dragdrop.zip` onto `chrome://extensions` (Developer mode on), or unzip → Load unpacked |
 | **Firefox** | `about:debugging` → Load Temporary Add-on → pick the `.xpi` (temporary = gone on restart unless signed) |
+| **Userscript** (Tampermonkey / ScriptCat / Violentmonkey) | One-click install below, or grab `Twitchphage.user.js` from Releases |
 
 No store listings — the browser stores don't allow extensions that touch the
 ad-revenue stream, so GitHub Releases is where this lives.
+
+## Userscript (one-click)
+
+No store, no manifest, no dev mode — just a userscript manager.
+
+[![Install userscript](https://img.shields.io/badge/One--click%20install-Twitchphage.user.js-A03CFF?style=for-the-badge&logo=javascript&logoColor=white)](https://raw.githubusercontent.com/Marek-Codex/Twitchphage/main/userscript/Twitchphage.user.js)
+
+Click the button with a userscript manager installed and it'll offer to install.
+Same trick as the extension — swap the token `playerType` to a clean stream, and
+strip any ad segments that sneak through — just packaged as one self-contained
+file with `adblock.js` inlined. The header declares `@inject-into page` so it can
+touch `window.Worker`; ScriptCat users, set injection mode to **Page** if it
+defaults to a sandboxed context.
 
 ---
 
@@ -137,11 +151,15 @@ fix" workflow.
 ## For maintainers
 
 ```bash
-node tools/test-logic.js   # prove the ad-strip + token-swap logic still works
+node tools/test-logic.js       # prove the ad-strip + token-swap logic still works
+node tools/build-userscript.js # regenerate userscript/Twitchphage.user.js (adblock inlined)
 ```
 
-Run this after editing `src/page.js` or `src/adblock.js`. It's a `vm`-sandbox
-test — no browser, no Twitch, no network. If the logic drifts, it fails loudly.
+Run the test after editing `src/page.js` or `src/adblock.js` — it's a
+`vm`-sandbox test, no browser, no Twitch, no network, fails loudly if logic
+drifts. After editing `src/adblock.js`, also rebuild the userscript so the
+committed one-click file stays in sync. The `.user.js` is committed
+ready-to-install; the zips are git-ignored and ship via Releases.
 
 ---
 
