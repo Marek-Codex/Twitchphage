@@ -1,0 +1,23 @@
+Twitchphage
+Copyright 2026 Marek-Codex
+
+This project eats Twitch ads so you don't have to watch them. Forged by a
+caffeinated cat boy who has seen things.
+
+Licensed under the Apache License, Version 2.0 (the "License"). Fork it, host
+it, improve it — but Section 4 of the License requires you to keep this notice
+attached. Credit stays welded on. Don't strip it and claim you wrote the thing.
+
+Standing on the shoulders of giants: the ad-blocking technique follows
+pixeltris/TwitchAdSolutions (MIT), specifically the vaft script's approach of
+swapping the PlaybackAccessToken playerType and stripping stitched ad segments
+from the HLS playlist. That repo was archived in March 2026 when its maintainer
+stepped away from Twitch. Twitchphage is an independent, leaner reimplementation
+— no bundled player, no dependencies, no vendored worker-patching — built to be
+maintainable by whoever shows up next. Full respect to pixeltris for mapping the
+territory.
+
+If Twitchphage saved you from a mid-roll and you're feeling generous:
+    ko-fi.com/MarekCodex
+
+Entirely optional. Go watch your stream. nyaa~

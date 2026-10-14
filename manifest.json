@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Twitchphage",
+  "version": "1.0.0",
+  "description": "Block Twitch ads without a proxy or a server. Lightweight MV3, no build step, runs entirely client-side. It eats the ads. nyaa~",
+  "minimum_chrome_version": "111",
+  "icons": { "128": "icons/icon128.png" },
+  "content_scripts": [
+    {
+      "matches": ["*://*.twitch.tv/*"],
+      "js": ["src/content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/page.js", "src/adblock.js"],
+      "matches": ["*://*.twitch.tv/*"]
+    }
+  ],
+  "host_permissions": ["https://*.twitch.tv/*"],
+  "browser_specific_settings": {
+    "gecko": { "id": "twitchphage@local", "strict_min_version": "115.0" }
+  }
+}

@@ -1,0 +1,7 @@
+# Release artifacts — distributed via GitHub Releases, not committed here
+*.zip
+*.xpi
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
