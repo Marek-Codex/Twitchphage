@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitchphage
 // @namespace    https://github.com/Marek-Codex/Twitchphage
-// @version      1.0.0
+// @version      1.4.0
 // @description  Block Twitch ads without a proxy or a backend. Lightweight, no build step, runs entirely client-side. It eats the ads. nyaa~
 // @author       Marek-Codex
 // @match        *://*.twitch.tv/*
