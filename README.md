@@ -11,7 +11,7 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-A03CFF?style=flat-square&logo=apache&logoColor=white)
 
 **Block Twitch ads without a proxy or a backend.** Lightweight, no build step,
-runs entirely client-side. It just eats the ads. nyaa~
+runs entirely client-side. It's aggressive re-upholstery. nyaa~
 
 </div>
 
