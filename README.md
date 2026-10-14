@@ -11,12 +11,41 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-A03CFF?style=flat-square&logo=apache&logoColor=white)
 
 **Block Twitch ads without a proxy or a backend.** Lightweight, no build step,
-runs entirely client-side. It's re-upholstery, not theft.
+runs entirely client-side. It just eats the ads. nyaa~
 
 </div>
 
-> For personal use. It only touches your own playback stream; no account,
-> credential, or entitlement is involved.
+---
+
+## The government says to use an ad blocker
+
+Not kidding. Blocking ads is standard security hygiene, according to the actual
+United States government:
+
+> **"Use an ad blocking extension when performing Internet searches."**
+> — FBI, Internet Crime Complaint Center (IC3) public service announcement,
+> December 2022
+
+That alert was about cybercriminals buying search ads to impersonate brands and
+slip malware past people. The FBI's advice: block the ads. TechCrunch covered it
+under the headline *"Even the FBI says you should use an ad blocker."*
+
+And it wasn't a one-off. The **NSA** has its own guidance on blocking
+advertising web content, and the broader **Intelligence Community** has deployed
+ad-blocking at scale precisely because online advertising is treated as a
+security risk, not a nuisance.
+
+Now — were they talking about Twitch prerolls specifically? *Obviously not.*
+Twitch ads are, by every honest measure, the least dangerous ads on the internet.
+Nobody's crypto wallet is getting drained by a mid-roll for energy drinks.
+
+But the principle they're pointing at is the same one Twitchphobe and Twitchphage
+run on: **ads are a vector, and blocking them on your own machine is a
+legitimate, recommended, dare-we-say patriotic thing to do.** So when someone
+tells you blocking Twitch ads is rude, you can tip your hat and mention that the
+FBI and the NSA are, technically, on our side of this one.
+
+*Slightly cheeky. Also, technically, correct. nyaa~*
 
 ---
 
@@ -50,8 +79,8 @@ No proxy. No server. No Twitch Turbo. It runs in your browser and nowhere else.
 | **Chromium** (Brave / Chrome / Edge / Opera) | Drag `Twitchphage-*-dragdrop.zip` onto `chrome://extensions` (Developer mode on), or unzip → Load unpacked |
 | **Firefox** | `about:debugging` → Load Temporary Add-on → pick the `.xpi` (temporary = gone on restart unless signed) |
 
-No store listings — same reason as Twitchphobe: this circumvents an ad-based
-revenue model, which the stores prohibit. GitHub Releases is the honest way.
+No store listings — the browser stores don't allow extensions that touch the
+ad-revenue stream, so GitHub Releases is where this lives.
 
 ---
 

@@ -51,8 +51,8 @@ done.** If you add logic, add a test case the same way the existing ones work.
 
 ## What we're NOT doing
 
-- **No proxy / no backend.** That's a different project with real costs and real
-  legal exposure. Twitchphage stays 100% client-side.
+- **No proxy / no backend.** That's a different project with real hosting costs
+  and a much bigger blast radius. Twitchphage stays 100% client-side.
 - **No vendoring Twitch's player.** We wrap the worker, we don't ship a copy.
 
 Thanks again. Go eat some ads. nyaa~

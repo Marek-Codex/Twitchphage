@@ -12,7 +12,7 @@
  * segments with `,live` in their #EXTINF duration line; ad segments don't get
  * that tag. So a segment whose #EXTINF lacks `,live` is an ad. We also blank the
  * prefetch hints (so the player can't pre-buffer an ad) and neuter the ad
- * click-tracking URLs (so the overlay can't phone home). Re-upholstery, again.
+ * click-tracking URLs (so the overlay can't phone home). Tidy little paws, all.
  * ==========================================================================*/
 (() => {
   'use strict';

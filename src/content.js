@@ -3,7 +3,7 @@
  * Same trick as Twitchphobe: content scripts live in the kiddie-table sandbox
  * and can't touch window.Worker, so I yeet a real <script> at the page and let
  * page.js do the actual cosplay. I just carry the address. Like a cat dropping
- * a (slightly illegal) mouse on your porch and leaving. nyaa~
+ * a mouse on your porch and leaving. nyaa~
  * ==========================================================================*/
 (() => {
   'use strict';
