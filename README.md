@@ -19,7 +19,7 @@ runs entirely client-side. It's aggressive re-upholstery. nyaa~
 
 ---
 
-## The government says to use an ad blocker
+## Everyone from the FBI to the web's own inventor says block the ads
 
 Not kidding. Blocking ads is standard security hygiene — recommended, on the
 record, by the United States government:
@@ -31,26 +31,38 @@ record, by the United States government:
 The alert was about cybercriminals buying search ads to impersonate brands and
 slip malware past people. The FBI's prescription was blunt: block the ads.
 TechCrunch ran it under the headline *"Even the FBI says you should use an ad
-blocker."*
+blocker."* It wasn't a one-off — the NSA publishes its own guidance on blocking
+advertising content, and the Intelligence Community runs ad-blockers at scale.
 
-It wasn't a one-off. The **NSA** publishes its own guidance on blocking
-advertising web content, and the broader **Intelligence Community** runs
-ad-blockers at scale — a congressional letter obtained by reporters showed
-agencies treat online advertising as a security risk in its own right (*"The NSA
-and CIA Use Ad Blockers Because Online Advertising Is So Dangerous,"* Joseph
-Cox). When the FBI's Denver field office posted its own reminder to install an
-ad blocker in 2024, it made national news.
+And it's not just the spooks. **Tim Berners-Lee — the man who invented the World
+Wide Web** — argues the ad-supported web is cleaving into a two-tier internet,
+where "those who can't afford it will put up with the ads and they won't have the
+same quality of life." The researchers who track this for a living say
+"malvertising" is now a primary way malware spreads: the UN calls it "a
+cyberattack technique that injects malicious code within digital ads," where
+"virtually every page viewer is at risk of infection." Instances were up 42% in a
+single season, per Malwarebytes.
 
-So no — this isn't a spite project or a tantrum. Blocking ads on your own machine
-is recommended hygiene from the same agencies people trust for security advice.
-Twitchphage just aims that well-established practice at Twitch's server-side
-stitched ads: the one place off-the-shelf ad blockers can't reach.
+Here's the part that ties it all to *this* extension specifically: the whole
+reason off-the-shelf ad blockers can't touch Twitch ads is that they're stitched
+**directly into your video stream**, server-side. Which means every ad break is a
+set of segments Twitch's ad partners inject straight into your player. Who knows
+what's riding along in there. Blocking them isn't just about dodging an annoying
+90 seconds — it's about not loading someone else's code into your browser
+mid-stream. We're not saying Twitch's ads are malicious. We're just… asking
+questions. nyaa~
+
+*(Berners-Lee's Turing Award, incidentally, was funded by Google — the company
+running the ad machine its own inventor keeps criticizing. We won't dwell on it.
+…Okay, we will. Look at it.)*
 
 <sub>Sources:
 [TechCrunch](https://techcrunch.com/2022/12/22/fbi-ad-blocker/) ·
 [SecurityWeek](https://www.securityweek.com/fbi-recommends-ad-blockers-cybercriminals-impersonate-brands-search-engine-ads/) ·
 [IC3 alert, archived](https://blog.zgp.org/fbi-update/) ·
-[FBI Denver, 2024](https://www.pcmag.com/news/fbi-recommends-installing-an-ad-blocker-to-dodge-scammers)</sub>
+[FBI Denver, 2024](https://www.pcmag.com/news/fbi-recommends-installing-an-ad-blocker-to-dodge-scammers) ·
+[Quartz: what Berners-Lee thinks is wrong with the web](https://qz.com/949624/everything-wrong-with-the-web-today-according-to-turing-award-winner-tim-berners-lee) ·
+[WIRED: malvertising in search results](https://www.wired.com/story/malicious-ads-in-search-results-are-driving-new-generations-of-scams/)</sub>
 
 *Slightly cheeky. Also, technically, correct. nyaa~*
 
