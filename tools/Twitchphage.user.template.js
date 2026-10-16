@@ -43,6 +43,31 @@
   // whole payload — it strips stitched ad segments out of the playlist.
   const ADBLOCK = "__ADBLOCK_JS__";
 
+  /* --- the buffering-fix: nudge a frozen live player (same as content.js) ---
+     Ad breaks stall the player at the stitch boundary — we swap the ad segments
+     for a blank clip, and the player sits spinning waiting on bytes that aren't
+     arriving in the shape it expected. A quick pause/play on the raw <video>
+     kicks the media engine out of it (learned from the field; done on the DOM
+     element, NOT React internals, so it can't decay). Self-limiting: sustained
+     freezes only, min 4s apart. nyaa~ ---------------------------------------- */
+  (() => {
+    let v = null, last = 0, ticks = 0, lastNudge = 0;
+    setInterval(() => {
+      if (!v || !v.isConnected) { v = document.querySelector('video'); ticks = 0; last = v ? v.currentTime : 0; return; }
+      if (v.paused || v.seeking) { ticks = 0; last = v.currentTime; return; }
+      if (v.currentTime === last) {
+        if (++ticks >= 3 && Date.now() - lastNudge > 4000) {
+          lastNudge = Date.now(); ticks = 0;
+          v.pause();
+          requestAnimationFrame(() => { Promise.resolve(v.play()).catch(() => {}); });
+        }
+      } else {
+        ticks = 0;
+      }
+      last = v.currentTime;
+    }, 400);
+  })();
+
   /* --- wrap window.Worker (ported from page.js) -----------------------------
      Twitch's player is a blob: worker. We read its source, prepend our inlined
      adblock script, and hand back a NEW blob. No importScripts here because a
