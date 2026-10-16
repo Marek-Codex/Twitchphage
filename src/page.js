@@ -1,24 +1,22 @@
 /* ============================================================================
  * Twitchphage :: page.js  —  the "MAIN world" hook. Runs as a real page script.
  *
- * Two jobs, and neither one hardcodes anything fragile. That's the whole point.
+ * One job: get adblock.js inside Twitch's IVS player worker. That's the whole
+ * file. Same cosplay as Twitchphobe's page.js — subclass window.Worker, slip
+ * our script in before the real worker boots. It's less "hacking" and more
+ * "standing subtly behind someone in a group photo." nyaa~
  *
- *   1. THE CLEAN-STREAM SWAP. Twitch stitches ads server-side, but some player
- *      types (popout/embed/autoplay) historically get UNSTITCHED streams. So we
- *      hook window.fetch, and the instant Twitch's own frontend asks for a
- *      PlaybackAccessToken, we quietly swap its `playerType` to `popout`. Twitch
- *      then hands back a clean token using ITS OWN current sha256Hash, integrity
- *      token, device-id — all of which rotate on their schedule, not ours. We
- *      never paste in a hash that goes stale. Twitch keeps us current for free.
- *      It's not a hack, it's a strongly-worded suggestion to their own API.
- *
- *   2. THE WORKER HIJACK. Same cosplay as Twitchphobe: subclass window.Worker,
- *      slip adblock.js into the IVS player worker. That's the fallback — if any
- *      ad segments still sneak through, adblock.js strips them from the m3u8.
- *
- * The bits that actually break when Twitch changes things are ALL up here in
- * CONFIG. When it rots, a contributor updates two or three strings and nothing
- * else. That's the deal. nyaa~
+ * A NOTE ON WHAT USED TO BE HERE (a lesson, so nobody re-adds it): we used to
+ * also hook window.fetch and swap the PlaybackAccessToken `playerType` to
+ * 'popout' to try to get an unstitched "clean stream." Live testing proved that
+ * was actively HARMFUL: every time Twitch re-issued the token at an ad break,
+ * the swap flipped the stream identity, and the player RELOADED onto the capped
+ * 'popout' rendition — potato quality, a few seconds of spinner, a volume
+ * reset. The cleanroom principle (straight from Twitchphobe's patch.js): DON'T
+ * replace the whole stream, just surgically remove the bad parts. So we deleted
+ * the swap. We stay on Twitch's OWN full-quality source stream and let
+ * adblock.js strip the stitched ad segments out of the playlist. No stream
+ * swap, no reload, no potato. Rest in peace, clever idea. You were too much.
  * ==========================================================================*/
 (() => {
   'use strict';
@@ -27,85 +25,13 @@
   const adblockUrl = script && script.dataset ? script.dataset.adblock : null;
   if (!adblockUrl) return;
 
-  /* --------------------------------------------------------------------------
-     THE ARMS-RACE SURFACE. Everything volatile lives here. If Twitch shifts
-     and Twitchphage dies, it's almost certainly one of these three lines.
-     Update them, ship, go back to your coffee. --------------------------------- */
-  const CONFIG = {
-    /* Which playerType gets an ad-free stream. 'popout' is the reliable one;
-       'embed' and 'autoplay' are backups if popout ever gets ads stitched in. */
-    cleanPlayerType: 'popout',
-    backupPlayerTypes: ['embed', 'autoplay'],
-
-    /* The signifier Twitch drops into an ad-stitched m3u8. If they rename the
-       marker, this is the string that needs the new name. */
-    adSignifier: 'stitched'
-  };
-
-  // Live values we sniff off Twitch's OWN requests and hand to the worker, so
-  // the worker can make authenticated token requests without us storing a thing.
-  let live = {
-    deviceId: null,
-    clientVersion: null,
-    clientSession: null,
-    clientIntegrity: null,
-    authorization: undefined
-  };
-
-  const workers = new Set();
-
-  const toWorker = (key, value) => {
-    live[key] = value;
-    // Fan out to every Twitch worker we've spawned. Best-effort; if one's gone,
-    // it's gone. We are not in the business of grieving dead workers.
-    workers.forEach((w) => { try { w.postMessage({ key, value }); } catch {} });
-  };
-
-  /* ---- JOB 1: hook window.fetch --------------------------------------------
-     We watch for Twitch's GQL traffic. Two things happen when we see it:
-       (a) harvest the live auth headers (so the worker can reuse them), and
-       (b) rewrite the playerType on any PlaybackAccessToken request to 'popout'. */
-  const realFetch = window.fetch;
-  window.fetch = function (url, init, ...rest) {
-    try {
-      if (typeof url === 'string' && url.includes('gql') && init && typeof init.body === 'string') {
-        const H = init.headers || {};
-
-        const devId = H['X-Device-Id'] || H['Device-ID'];
-        if (typeof devId === 'string') toWorker('deviceId', devId);
-        if (typeof H['Client-Version'] === 'string') toWorker('clientVersion', H['Client-Version']);
-        if (typeof H['Client-Session-Id'] === 'string') toWorker('clientSession', H['Client-Session-Id']);
-        if (typeof H['Client-Integrity'] === 'string') toWorker('clientIntegrity', H['Client-Integrity']);
-        if (typeof H['Authorization'] === 'string') toWorker('authorization', H['Authorization']);
-
-        // The clean-stream swap. Parse Twitch's own body, flip the playerType,
-        // re-serialize. If parsing ever fails we just... don't. Twitch keeps
-        // its original request and we fall back to segment-stripping instead.
-        if (init.body.includes('PlaybackAccessToken')) {
-          const body = JSON.parse(init.body);
-          const flip = (op) => {
-            if (op && op.variables && op.variables.playerType &&
-                op.variables.playerType !== CONFIG.cleanPlayerType) {
-              op.variables.playerType = CONFIG.cleanPlayerType;
-            }
-          };
-          if (Array.isArray(body)) body.forEach(flip); else flip(body);
-          init = { ...init, body: JSON.stringify(body) };
-        }
-      }
-    } catch (err) {
-      // Any parse hiccup -> hand Twitch its original request, untouched.
-      // Failing closed to "do nothing" is the safe failure mode here.
-    }
-    return realFetch.apply(this, [url, init, ...rest]);
-  };
-
-  /* ---- JOB 2: hijack the player worker -------------------------------------
-     Identical bones to Twitchphobe's page.js, because it's the proven way to
-     get code inside the IVS player's blob: worker. Blocking synchronous read,
-     prepend importScripts, rebuild the blob. Gross. Works. Don't touch. ------- */
+  // Keep a leash on the REAL Worker so we can still summon the real thing.
   const NativeWorker = window.Worker;
 
+  // Blocking synchronous read — yes, a sync XHR, the thing they warn you about.
+  // But we NEED the worker's full source in hand before it constructs, and
+  // there's no `await` in a constructor. Gross. Deprecated-adjacent. The only
+  // way. We're all making choices. Twitchphobe taught us this one. -----------
   const readSync = (url) => {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', url, false);
@@ -114,16 +40,22 @@
     return xhr.responseText;
   };
 
+  // We subclass the native Worker. Same face, different brain. *ear flick*
   window.Worker = class Worker extends NativeWorker {
     constructor(url, options) {
       let target = url;
 
+      // Only INLINE blob:/data: workers that aren't modules. Twitch's IVS
+      // player is exactly that. Narrow scope, minimal mischief.
       const isModule = !!(options && options.type === 'module');
       const isInline = typeof url === 'string' && /^(blob|data):/.test(url);
 
       if (isInline && !isModule) {
         try {
           const source = readSync(url);
+          // Prepend adblock.js, then Twitch's original source. The worker runs
+          // adblock FIRST — so fetch is already politely hooked when Twitch's
+          // code asks for the stitched playlist. Order is everything.
           target = URL.createObjectURL(
             new Blob(
               [`importScripts(${JSON.stringify(adblockUrl)});\n`, source],
@@ -131,19 +63,11 @@
             )
           );
         } catch (err) {
-          target = url;
+          target = url; // anything goes wrong -> hand back the boring original
         }
       }
 
-      const worker = super(target, options);
-      workers.add(worker);
-      // The worker pings for fresh live values (e.g. after a reload). Answer.
-      worker.addEventListener('message', (e) => {
-        if (e.data && e.data.__twitchphage_wants_live) {
-          try { worker.postMessage({ key: 'LiveValues', value: live }); } catch {}
-        }
-      });
-      return worker;
+      super(target, options);
     }
   };
 })();

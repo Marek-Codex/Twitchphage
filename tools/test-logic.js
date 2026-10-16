@@ -1,6 +1,11 @@
-/* Twitchphage logic test — proves the two load-bearing pieces before we trust them.
+/* Twitchphage logic test — proves the core ad-strip works before we trust it.
    Run: node tools/test-logic.js
-   No browser, no Twitch. Just the pure logic, in a vm sandbox. ------------------ */
+   No browser, no Twitch. Just the pure logic, in a vm sandbox. ------------------
+
+   NOTE: this used to also unit-test the token playerType swap. We deleted the
+   swap (live testing showed it reloaded the player onto a capped stream at
+   every ad break). Now the strip in adblock.js IS the whole mechanism, and
+   page.js is just the worker-hijack — so the tests below focus there. -------- */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -30,6 +35,16 @@ const AD_PLAYLIST = [
   '#EXT-X-ENDLIST'
 ].join('\n');
 
+const CLEAN_PLAYLIST = [
+  '#EXTM3U',
+  '#EXT-X-TARGETDURATION:2',
+  '#EXTINF:2.000,live',
+  'https://video-weaver.example/content-segment-0.ts',
+  '#EXTINF:2.000,live',
+  'https://video-weaver.example/content-segment-1.ts',
+  '#EXT-X-ENDLIST'
+].join('\n');
+
 function makeResponseClass() {
   return class Response {
     constructor(b, o){ this._b = b; this.status = (o||{}).status; this.headers = (o||{}).headers || {}; }
@@ -37,15 +52,18 @@ function makeResponseClass() {
   };
 }
 
-(async () => {
-  /* ---- TEST 1: stripAds removes ad segments, keeps content ----------------- */
+function runAdblock(playlist) {
   const Response = makeResponseClass();
-  const sb2 = { self: {}, Request: class { constructor(u){ this.url = u; } }, Response };
-  sb2.self.fetch = () => Promise.resolve(new Response(AD_PLAYLIST, { status: 200 }));
-  vm.createContext(sb2);
-  vm.runInContext(adblockSrc, sb2);
+  const sb = { self: {}, Request: class { constructor(u){ this.url = u; } }, Response };
+  sb.self.fetch = () => Promise.resolve(new Response(playlist, { status: 200 }));
+  vm.createContext(sb);
+  vm.runInContext(adblockSrc, sb);
+  return sb.self.fetch('https://video-weaver.example/index.m3u8');
+}
 
-  const res = await sb2.self.fetch('https://video-weaver.example/index.m3u8');
+(async () => {
+  /* ---- TEST 1: strip removes ad segments, keeps content ------------------- */
+  const res = await runAdblock(AD_PLAYLIST);
   const out = await res.text();
 
   ok('ad segments blanked (no ad-segment URLs survive)',
@@ -57,76 +75,42 @@ function makeResponseClass() {
      out.includes('X-TV-TWITCH-AD-URL="https://twitch.tv"'));
   ok('content-type set to HLS mime', res.headers['Content-Type'] === 'application/vnd.apple.mpegurl');
 
-  /* ---- TEST 2: playerType swap rewrites Twitch's token request ------------- */
-  const Response2 = makeResponseClass();
+  /* ---- TEST 2: a clean playlist passes through untouched (no lies injected) - */
+  const cres = await runAdblock(CLEAN_PLAYLIST);
+  const cout = await cres.text();
+  ok('clean playlist: content preserved', cout.includes('content-segment-0.ts') && cout.includes('content-segment-1.ts'));
+  ok('clean playlist: no blank clip injected (no fabrication)', !cout.includes('data:video/mp4;base64'));
+
+  /* ---- TEST 3: page.js hijacks window.Worker (the injection still happens) -- */
+  const Native = class Worker { constructor(u, o){ this.url = u; } };
   const sb3 = {
     console,
     URL: { createObjectURL: () => 'blob:fake' },
     Blob: class Blob { constructor(parts){ this.parts = parts; } },
-    XMLHttpRequest: class { open(){} overrideMimeType(){} send(){ this.responseText=''; } },
-    document: { currentScript: { dataset: { adblock: 'chrome-ext://adblock.js' } } },
-    Response: Response2
+    XMLHttpRequest: class { open(){} overrideMimeType(){} send(){ this.responseText = ''; } },
+    document: { currentScript: { dataset: { adblock: 'chrome-ext://adblock.js' } } }
   };
   sb3.window = sb3;
-  let sentInit = null;
-  sb3.window.fetch = function(url, init){ sentInit = init; return Promise.resolve(new Response2('{}', {status:200})); };
-  sb3.window.Worker = class Worker { constructor(u,o){ this.url=u; } addEventListener(){} };
+  sb3.window.Worker = Native;
   vm.createContext(sb3);
   vm.runInContext(pageSrc, sb3);
+  ok('page.js wraps window.Worker', sb3.window.Worker !== Native);
 
-  const tokenBody = JSON.stringify({
-    operationName: 'PlaybackAccessToken',
-    variables: { isLive: true, login: 'somechannel', isVod: false, vodID: '', playerType: 'site', platform: 'web' },
-    extensions: { persistedQuery: { version: 1, sha256Hash: 'deadbeef' } }
-  });
-  await sb3.window.fetch('https://gql.twitch.tv/gql', { method: 'POST', headers: { 'Client-Id': 'x', 'Client-Integrity': 'tok' }, body: tokenBody });
-
-  const sent = JSON.parse(sentInit.body);
-  ok('playerType swapped site -> popout', sent.variables.playerType === 'popout');
-  ok('persistedQuery hash preserved (we did NOT overwrite it)', sent.extensions.persistedQuery.sha256Hash === 'deadbeef');
-  ok('operationName preserved', sent.operationName === 'PlaybackAccessToken');
-
-  /* ---- TEST 3: non-token GQL requests pass through untouched --------------- */
-  let passthroughBody = null;
-  sb3.window.fetch = function(url, init){ passthroughBody = init.body; return Promise.resolve(new Response2('{}', {status:200})); };
-  vm.runInContext(pageSrc, sb3);
-  const otherBody = JSON.stringify({ operationName: 'SomeOtherQuery', variables: { playerType: 'site' } });
-  await sb3.window.fetch('https://gql.twitch.tv/gql', { method:'POST', headers:{}, body: otherBody });
-  ok('non-PlaybackAccessToken body untouched', passthroughBody === otherBody);
-
-  /* ---- TEST 4: live auth headers harvested + forwarded to worker ----------- */
-  const Response4 = makeResponseClass();
-  const s4 = {
-    console, URL: { createObjectURL: () => 'blob:fake' },
-    Blob: class Blob { constructor(p){ this.parts=p; } },
-    XMLHttpRequest: class { open(){} overrideMimeType(){} send(){ this.responseText=''; } },
-    document: { currentScript: { dataset: { adblock: 'x' } } },
-    Response: Response4
+  /* ---- TEST 4: without an adblock URL, page.js bails safely --------------- */
+  const Native4 = class Worker { constructor(u, o){ this.url = u; } };
+  const sb4 = {
+    console,
+    URL: { createObjectURL: () => 'blob:fake' },
+    Blob: class Blob { constructor(parts){ this.parts = parts; } },
+    XMLHttpRequest: class { open(){} overrideMimeType(){} send(){ this.responseText = ''; } },
+    document: { currentScript: { dataset: {} } }   // no adblock URL -> should not touch Worker
   };
-  s4.window = s4;
-  const posted = [];
-  s4.window.fetch = () => Promise.resolve(new Response4('{}', {status:200}));
-  s4.window.Worker = class Worker {
-    constructor(u,o){ this.url=u; }
-    addEventListener(){}
-    postMessage(m){ posted.push(m); }
-  };
-  vm.createContext(s4);
-  vm.runInContext(pageSrc, s4);
-  // Construct a Twitch worker FIRST so it's registered in the `workers` set and
-  // will actually receive the forwarded live values. (blob: URL = inline path.)
-  new s4.window.Worker('blob:https://player.twitch.tv/worker');
-  await s4.window.fetch('https://gql.twitch.tv/gql', {
-    method:'POST',
-    headers: { 'Client-Integrity': 'integrity-abc', 'Client-Version': '1.2.3', 'X-Device-Id': 'dev-123' },
-    body: JSON.stringify({ operationName: 'PlaybackAccessToken', variables: { playerType: 'site' } })
-  });
-  const keys = posted.map(p => p.key);
-  ok('harvests Client-Integrity', keys.includes('clientIntegrity'));
-  ok('harvests Client-Version', keys.includes('clientVersion'));
-  ok('harvests X-Device-Id', keys.includes('deviceId'));
+  sb4.window = sb4;
+  sb4.window.Worker = Native4;
+  vm.createContext(sb4);
+  vm.runInContext(pageSrc, sb4);
+  ok('page.js no-ops (leaves Worker alone) without adblock URL', sb4.window.Worker === Native4);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
-})().catch(e => { console.error('test harness error:', e); process.exit(1); });
-
+})().catch((e) => { console.error('test harness error:', e); process.exit(1); });
