@@ -26,27 +26,32 @@
      element directly instead of walking React internals — the element is a
      stable DOM citizen, the React walk breaks every time Twitch refactors the
      player (and when it breaks it just silently stops, leaving you the stall).
-     Self-limiting: only sustained freezes (1.2s), min 4s between nudges, so it
-     can't fight real network buffering or loop. nyaa~ ---------------------------- */
+     Self-limiting: only fires AFTER playback has started (a frozen currentTime
+     during initial load is just buffering — nudging there is what broke loading),
+     only on sustained freezes (1.2s), min 4s apart, and it resumes via setTimeout
+     (not rAF, which throttles in background tabs and used to strand it paused). */
   (() => {
-    let v = null, last = 0, ticks = 0, lastNudge = 0;
+    let v = null, last = 0, ticks = 0, lastNudge = 0, started = false;
     setInterval(() => {
       // (Re)acquire the video; it mounts late and is replaced on channel change.
       if (!v || !v.isConnected) {
         v = document.querySelector('video');
-        ticks = 0;
-        last = v ? v.currentTime : 0;
+        ticks = 0; started = false; last = v ? v.currentTime : 0;
         return;
       }
-      if (v.paused || v.seeking) { ticks = 0; last = v.currentTime; return; }
+      // A frozen currentTime BEFORE playback starts is just normal load buffering.
+      // Only arm the fix once the stream has actually begun (currentTime advanced).
+      if (v.currentTime > 0) started = true;
+      if (v.paused || v.seeking || !started) { ticks = 0; last = v.currentTime; return; }
 
       if (v.currentTime === last) {
         if (++ticks >= 3 && Date.now() - lastNudge > 4000) {
           lastNudge = Date.now();
           ticks = 0;
           v.pause();
-          // play() on the next frame so the pause actually registers with the engine.
-          requestAnimationFrame(() => { Promise.resolve(v.play()).catch(() => {}); });
+          // Resume on a macrotask, NOT rAF — rAF throttles in background tabs,
+          // which used to leave the video stuck paused ("won't load").
+          setTimeout(() => { Promise.resolve(v.play()).catch(() => {}); }, 0);
         }
       } else {
         ticks = 0;

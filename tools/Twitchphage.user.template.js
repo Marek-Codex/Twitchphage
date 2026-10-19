@@ -51,15 +51,16 @@
      element, NOT React internals, so it can't decay). Self-limiting: sustained
      freezes only, min 4s apart. nyaa~ ---------------------------------------- */
   (() => {
-    let v = null, last = 0, ticks = 0, lastNudge = 0;
+    let v = null, last = 0, ticks = 0, lastNudge = 0, started = false;
     setInterval(() => {
-      if (!v || !v.isConnected) { v = document.querySelector('video'); ticks = 0; last = v ? v.currentTime : 0; return; }
-      if (v.paused || v.seeking) { ticks = 0; last = v.currentTime; return; }
+      if (!v || !v.isConnected) { v = document.querySelector('video'); ticks = 0; started = false; last = v ? v.currentTime : 0; return; }
+      if (v.currentTime > 0) started = true;   // only arm AFTER playback begins
+      if (v.paused || v.seeking || !started) { ticks = 0; last = v.currentTime; return; }
       if (v.currentTime === last) {
         if (++ticks >= 3 && Date.now() - lastNudge > 4000) {
           lastNudge = Date.now(); ticks = 0;
           v.pause();
-          requestAnimationFrame(() => { Promise.resolve(v.play()).catch(() => {}); });
+          setTimeout(() => { Promise.resolve(v.play()).catch(() => {}); }, 0);  // not rAF (throttles in bg tabs)
         }
       } else {
         ticks = 0;
